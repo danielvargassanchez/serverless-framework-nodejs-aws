@@ -1,0 +1,95 @@
+service: lambda-api
+frameworkVersion: "2"
+provider:
+  name: aws
+  runtime: nodejs12.x
+  lambdaHashingVersion: 20201221
+  stage: dev
+  region: us-east-1
+  memorySize: 512
+  environment:
+    BOOKS_TABLE: ${self:customData.tableName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+          - dynamodb:Query
+          - dynamodb:Scan
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:UpdateItem
+          - dynamodb:DeleteItem
+          Resource:
+            Fn::GetAtt:  
+              - BookTable
+              - Arn
+customData:
+  tableName: "books-table-${self:provider.stage}"
+functions:
+  create:
+    handler: src/app/handlers.create
+    memorySize: 512
+    description: Submit book information
+    events:
+      - http:
+          path: book
+          method: post
+  getAll:
+    handler: src/app/handlers.getAll
+    memorySize: 512
+    description: get all books in dynamoDB
+    events:
+      - http:
+          path: books
+          method: get
+  getBook: 
+    handler: src/app/handlers.getBookById
+    memorySize: 512
+    description: get book by id
+    events: 
+      - http:
+          path: book/{id}
+          method: get
+  updateBook:
+    handler: src/app/handlers.updateBook
+    memorySize: 512
+    description: update a specific book
+    events:
+      - http:
+          path: book/{id}
+          method: put
+  deleteBook:
+    handler: src/app/handlers.deleteBook
+    memorySize: 512
+    description: delete a specific book
+    events:
+      - http:
+          path: book/{id}
+          method: delete
+  createBookEveryThreeMinutes:
+    handler: src/app/handlers.croneJob
+    memorySize: 512
+    description: create an element every 3 minutes
+    events:
+      - schedule: rate(2 minutes)
+      # - schedule: cron(0 18 15-30 JAN-DEC 2022-2023) Minutos horas dias-del-mes mes día-de-semana año
+  
+plugins:
+  - serverless-plugin-typescript
+
+resources:
+  Resources:
+    BookTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:customData.tableName}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
